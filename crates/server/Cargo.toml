@@ -1,0 +1,15 @@
+[package]
+name = "warsel-server"
+description = "Authoritative game server for WarARSelet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+warsel-core = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+
+[[bin]]
+name = "warsel-server"
+path = "src/main.rs"
