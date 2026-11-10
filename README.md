@@ -6,19 +6,27 @@ simulation, replays, server authority and headless tooling.
 
 ## Status
 
-The project is playable **headlessly** right now:
+The project has a playable **browser interface** plus headless tools:
 
 - `warsel-core` — deterministic authoritative simulation (economy, construction,
   production, combat, epochs, civilizations, fog, maps, replays, checksums).
+- `warsel-web` — browser client served by a tiny std-only HTTP server. You play
+  Player 1 against bots on a canvas map with fog of war.
 - `warsel-cli` — bot demo matches, simulations, ASCII map previews, benchmarks.
 - `warsel-server` — authoritative 20 Hz TCP server with a JSON-line protocol.
 
-There is no graphical client or lobby yet. The server is a development tool, not
-a hardened production service.
+There is no lobby, matchmaking or account system yet. The server and web tools
+are development builds, not hardened production services.
 
 ## Quick start
 
 ```bash
+# Browser interface (open the printed URL, usually 127.0.0.1:8080).
+cargo run -p warsel-web
+
+# Or start a specific match.
+cargo run -p warsel-web -- --players 2 --seed 7 --mode ffa
+
 # Watch a 180-second bot match in the terminal.
 cargo run -p warsel-cli
 
@@ -57,6 +65,52 @@ warsel [demo|simulate|map|bench] [OPTIONS]
 `demo` and `simulate` run deterministic bots. The bots issue ordinary commands;
 the world remains authoritative and the command stream is verified against
 checkpoints at the end of the match.
+
+## Browser interface
+
+`warsel-web` hosts everything itself, so there is nothing to install:
+
+```bash
+cargo run -p warsel-web
+# warsel-web: http://127.0.0.1:8080/  (seed 12345, 2 players, FFA, Duel)
+```
+
+Open the printed URL. You control **Player 1**; every other slot is played by a
+bot.
+
+![WarARSelet browser interface](docs/ui.png)
+
+Controls:
+
+- **Left click** a unit/building to select it; **drag** for a box selection.
+- **Right click** the map to move, attack an enemy, gather from a resource
+  deposit, or set a rally point for a selected production building.
+- **Ctrl/Shift + right click** issues an attack-move.
+- Production buttons appear when a finished building is selected.
+- The **Build** panel places houses, barracks, towers and other structures.
+- **Advance Epoch** and **New Match** are in the top bar.
+
+The canvas renders terrain, resource nodes, buildings, units, health bars and
+the player's fog of war. The event log on the right shows training, construction,
+combat, epoch and meteor events.
+
+HTTP API used by the page:
+
+```
+GET  /api/state       - visible snapshot for Player 1
+POST /api/command     - {"command": <warsel_core::Command>}
+POST /api/restart     - {"seed": 12345}
+```
+
+`warsel-web` options:
+
+```
+--addr <ADDR>     HTTP listen address      (default: 127.0.0.1:8080)
+--players <N>     Player slots, 1..=62     (default: 2)
+--seed <N>        Match seed               (default: 12345)
+--mode <MODE>     ffa | team | armageddon | survival | sandbox
+--size <SIZE>     duel | small | standard | large
+```
 
 ## Server protocol
 
@@ -125,7 +179,9 @@ Rules that keep the core trustworthy:
 
 Core modules: `arena`, `bot`, `checksum`, `command`, `defs`, `entity`, `epoch`,
 `fog`, `map`, `math`, `pathfinding`, `player`, `replay`, `resource`, `rng`,
-`spatial`, `time`, `world`.
+`spatial`, `time`, `world`. The web crate adds only `std::net` HTTP serving plus
+static HTML/CSS/JS; there are no browser frameworks or extra runtime
+dependencies.
 
 ## Tests
 
@@ -140,7 +196,8 @@ small bot smoke test.
 
 ## Known gaps
 
-- No graphical client, lobby, matchmaking or account system.
+- The browser client is a single-player dev interface: no lobby, matchmaking or
+  account system.
 - Wonder victory timer and Survival wave ownership are not finished.
 - Fog is enforced for client visibility, but the simulation itself is
   omniscient when acquiring targets.

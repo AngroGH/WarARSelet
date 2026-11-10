@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WarARSelet</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      WarARSelet
+      <span id="clock" class="clock">0:00</span>
+      <span id="outcome" class="outcome">connecting...</span>
+    </div>
+    <div id="hud" class="hud"></div>
+    <div class="actions">
+      <button id="advance" title="Advance to the next epoch">Advance Epoch</button>
+      <button id="restart" class="secondary" title="Start a new match">New Match</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="game">
+      <canvas id="map"></canvas>
+      <div id="hint" class="hint"></div>
+      <div id="toast" class="toast"></div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h3>Selection</h3>
+        <div id="selection"></div>
+      </div>
+      <div class="panel">
+        <h3>Build</h3>
+        <div id="build"></div>
+      </div>
+      <div class="panel grow">
+        <h3>Event log</h3>
+        <pre id="log-lines"></pre>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
