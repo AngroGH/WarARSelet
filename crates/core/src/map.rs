@@ -285,7 +285,7 @@ impl Map {
         // Start positions spread on a ring, snapped to the closest large
         // grass patch.
         let count = players.max(2);
-        let radius = (w as f32 * 0.34) as i32;
+        let radius = (w * 34) / 100;
         let cx = w / 2;
         let cy = h / 2;
         for i in 0..count {
@@ -321,15 +321,7 @@ impl Map {
 
         // Resource deposits near every start (fair opening) ...
         for start in map.starts.clone() {
-            map.scatter_cluster(
-                &mut rng,
-                start,
-                ResourceKind::Food,
-                3,
-                12,
-                60,
-                500,
-            );
+            map.scatter_cluster(&mut rng, start, ResourceKind::Food, 3, 12, 60, 500);
             map.scatter_cluster(&mut rng, start, ResourceKind::Wood, 4, 16, 90, 400);
             map.scatter_cluster(&mut rng, start, ResourceKind::Stone, 2, 8, 60, 350);
         }
@@ -588,7 +580,9 @@ fn ring_dir(i: u16, count: u16) -> (i32, i32) {
 }
 
 fn noise_field(rng: &mut Rng, cells: usize) -> Vec<i32> {
-    (0..(cells * cells)).map(|_| rng.in_range(0, 1001)).collect()
+    (0..(cells * cells))
+        .map(|_| rng.in_range(0, 1001))
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -612,9 +606,7 @@ fn sample_field(
     let fx = gx - Fixed::from_int(x0);
     let fy = gy - Fixed::from_int(y0);
 
-    let at = |xx: i32, yy: i32| -> Fixed {
-        Fixed::from_int(field[yy as usize * gw + xx as usize])
-    };
+    let at = |xx: i32, yy: i32| -> Fixed { Fixed::from_int(field[yy as usize * gw + xx as usize]) };
     let top = at(x0, y0) + (at(x1, y0) - at(x0, y0)) * fx;
     let bottom = at(x0, y1) + (at(x1, y1) - at(x0, y1)) * fx;
     let value = top + (bottom - top) * fy;
