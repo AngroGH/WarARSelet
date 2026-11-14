@@ -21,10 +21,7 @@ fn test_world(mode: GameMode) -> World {
             mode,
             ..MatchConfig::default()
         },
-        vec![
-            ("Alice".into(), 0, false),
-            ("Bob".into(), 0, false),
-        ],
+        vec![("Alice".into(), 0, false), ("Bob".into(), 0, false)],
     )
 }
 
@@ -52,9 +49,7 @@ fn workers(world: &World, owner: PlayerId) -> Vec<EntityId> {
     world
         .entities
         .iter()
-        .filter(|(_, e)| {
-            matches!(e, Entity::Unit(u) if u.owner == owner && u.def.0 == UNIT_WORKER)
-        })
+        .filter(|(_, e)| matches!(e, Entity::Unit(u) if u.owner == owner && u.def.0 == UNIT_WORKER))
         .map(|(id, _)| id)
         .collect()
 }
@@ -123,10 +118,7 @@ fn training_a_unit_costs_resources_and_respects_the_queue() {
         },
     );
     assert!(r.accepted, "{:?}", r.reason);
-    assert_eq!(
-        world.player(alice).resources.food,
-        food_before - cost.food
-    );
+    assert_eq!(world.player(alice).resources.food, food_before - cost.food);
 
     let units_before = world.unit_count();
     world.step_many(20 * 30);
@@ -197,16 +189,35 @@ fn placing_a_building_requires_resources_and_workers() {
     let mut world = test_world(GameMode::Sandbox);
     let alice = PlayerId(1);
     world.player_mut(alice).resources = warsel_core::Cost::ZERO;
-    let origin = world.map.starts[0];
+
+    // Pick a genuinely free tile near the town centre. The old fixed offset
+    // could land on a resource node, which fails earlier with OutOfBounds and
+    // never reaches the resource check.
+    let base = own_building(&world, alice, BUILDING_TOWN_CENTER).unwrap();
+    let base_origin = world.building(base).unwrap().origin;
+    let mut spot = None;
+    'outer: for dy in 2..12 {
+        for dx in 2..12 {
+            let candidate = TilePos::new(base_origin.x + dx, base_origin.y + dy);
+            if world.fits_footprint(candidate, 1) {
+                spot = Some(candidate);
+                break 'outer;
+            }
+        }
+    }
+    let origin = spot.expect("a free tile near the base");
     let r = world.apply_command(
         alice,
         Command::PlaceBuilding {
             building: BuildingDefId(BUILDING_HOUSE),
-            origin: TilePos::new(origin.x + 2, origin.y + 2),
+            origin,
         },
     );
     assert!(!r.accepted);
-    assert_eq!(r.reason, Some(warsel_core::CommandError::InsufficientResources));
+    assert_eq!(
+        r.reason,
+        Some(warsel_core::CommandError::InsufficientResources)
+    );
 }
 
 #[test]
@@ -247,7 +258,13 @@ fn workers_build_a_house_and_it_finishes() {
         .expect("a construction site");
 
     let crew = workers(&world, alice);
-    let r = world.apply_command(alice, Command::Assist { units: crew, target: site });
+    let r = world.apply_command(
+        alice,
+        Command::Assist {
+            units: crew,
+            target: site,
+        },
+    );
     assert!(r.accepted, "{:?}", r.reason);
     world.step_many(20 * 120);
 
@@ -284,7 +301,11 @@ fn combat_kills_units_and_the_damage_triangle_matters() {
             .spawn_unit(UnitDefId(UNIT_SPEARMAN), alice, center + offset)
             .unwrap();
         let b = world
-            .spawn_unit(UnitDefId(UNIT_CLUBMAN), bob, center + offset + warsel_core::Vec2::from_ints(2, 0))
+            .spawn_unit(
+                UnitDefId(UNIT_CLUBMAN),
+                bob,
+                center + offset + warsel_core::Vec2::from_ints(2, 0),
+            )
             .unwrap();
         alice_squad.push(a);
         bob_squad.push(b);
@@ -309,11 +330,23 @@ fn combat_kills_units_and_the_damage_triangle_matters() {
     );
     assert!(r.accepted);
 
-    let alice_before = alice_squad.iter().filter(|id| world.entity(**id).is_some()).count();
-    let bob_before = bob_squad.iter().filter(|id| world.entity(**id).is_some()).count();
+    let alice_before = alice_squad
+        .iter()
+        .filter(|id| world.entity(**id).is_some())
+        .count();
+    let bob_before = bob_squad
+        .iter()
+        .filter(|id| world.entity(**id).is_some())
+        .count();
     world.step_many(20 * 40);
-    let alice_left = alice_squad.iter().filter(|id| world.entity(**id).is_some()).count();
-    let bob_left = bob_squad.iter().filter(|id| world.entity(**id).is_some()).count();
+    let alice_left = alice_squad
+        .iter()
+        .filter(|id| world.entity(**id).is_some())
+        .count();
+    let bob_left = bob_squad
+        .iter()
+        .filter(|id| world.entity(**id).is_some())
+        .count();
 
     assert!(bob_left < bob_before, "someone in Bob's squad must die");
     assert!(
@@ -500,11 +533,13 @@ fn replay_reproduces_the_match() {
         world.step();
         if i == 10 {
             let crew = workers(&world, alice);
-            let node = world.map.alive_nodes().next().map(|(i, _)| i as u32).unwrap();
-            let cmd = Command::Gather {
-                units: crew,
-                node,
-            };
+            let node = world
+                .map
+                .alive_nodes()
+                .next()
+                .map(|(i, _)| i as u32)
+                .unwrap();
+            let cmd = Command::Gather { units: crew, node };
             let res = world.apply_command(alice, cmd.clone());
             replay.record(world.tick().0, alice, cmd, &res);
         }
@@ -529,7 +564,10 @@ fn snapshot_roundtrip_preserves_state() {
     world.step_many(40);
     let snap = warsel_core::replay::Snapshot::capture(&world);
     let restored = snap.restore().expect("checksum must match");
-    assert_eq!(checksum::hash_world(&world), checksum::hash_world(&restored));
+    assert_eq!(
+        checksum::hash_world(&world),
+        checksum::hash_world(&restored)
+    );
 }
 
 #[test]
@@ -539,7 +577,10 @@ fn fog_of_war_hides_the_enemy_base() {
     let bob = PlayerId(2);
     let bob_tc = own_building(&world, bob, BUILDING_TOWN_CENTER).unwrap();
     let pos = world.building(bob_tc).unwrap().pos;
-    assert!(!world.is_visible_to(alice, pos), "enemy base must be fogged");
+    assert!(
+        !world.is_visible_to(alice, pos),
+        "enemy base must be fogged"
+    );
     let alice_tc = own_building(&world, alice, BUILDING_TOWN_CENTER).unwrap();
     let pos = world.building(alice_tc).unwrap().pos;
     assert!(world.is_visible_to(alice, pos), "own base is visible");
@@ -555,10 +596,7 @@ fn armageddon_strikes_the_weakest_player() {
             meteor_period: 40,
             ..MatchConfig::default()
         },
-        vec![
-            ("Weak".into(), 0, true),
-            ("Strong".into(), 0, true),
-        ],
+        vec![("Weak".into(), 0, true), ("Strong".into(), 0, true)],
     );
     // Give player 2 a much bigger army so player 1 is the weakest.
     let bob = PlayerId(2);

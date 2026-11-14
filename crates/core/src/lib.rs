@@ -38,6 +38,7 @@
 #![deny(clippy::float_arithmetic)]
 
 pub mod arena;
+pub mod bot;
 pub mod checksum;
 pub mod command;
 pub mod defs;
@@ -57,6 +58,7 @@ pub mod spatial;
 pub mod time;
 pub mod world;
 
+pub use bot::SimpleBot;
 pub use command::{Command, CommandResult, TimedCommand};
 pub use defs::{default_catalog, Catalog};
 pub use entity::{Building, Entity, GameEvent, Unit};
@@ -80,4 +82,3 @@ pub mod prelude {
     pub use crate::resource::ResourceKind;
     pub use crate::world::{GameMode, MatchConfig, World};
 }
-

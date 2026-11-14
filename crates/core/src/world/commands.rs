@@ -4,9 +4,7 @@
 //! epoch gates, resource payment, population limits, bounds checks and rate
 //! limits. The simulation itself never trusts a client-supplied value.
 
-use crate::command::{
-    Command, CommandResult, MAX_CHAT_LEN, MAX_QUEUE, MAX_UNITS_PER_ORDER,
-};
+use crate::command::{Command, CommandResult, MAX_CHAT_LEN, MAX_QUEUE, MAX_UNITS_PER_ORDER};
 use crate::defs::{BuildingRole, UNIT_WORKER};
 use crate::entity::{Entity, Order, UnitState};
 use crate::epoch::{resource_available, CivSlot, Epoch};
@@ -14,7 +12,7 @@ use crate::error::CommandError;
 use crate::ids::{EntityId, PlayerId};
 use crate::map::MapSize;
 use crate::math::{TilePos, Vec2};
-use crate::resource::{Cargo, ResourceKind};
+use crate::resource::Cargo;
 
 use super::{building_center, MatchOutcome, World};
 
@@ -90,7 +88,11 @@ impl World {
         Ok(valid)
     }
 
-    fn try_apply(&mut self, player: PlayerId, command: Command) -> Result<CommandResult, CommandError> {
+    fn try_apply(
+        &mut self,
+        player: PlayerId,
+        command: Command,
+    ) -> Result<CommandResult, CommandError> {
         self.require_active(player)?;
 
         match command {
@@ -175,10 +177,7 @@ impl World {
                     return Err(CommandError::OutOfBounds);
                 }
                 let rally = target.center();
-                if let Some(b) = self
-                    .entity_mut(building)
-                    .and_then(|e| e.as_building_mut())
-                {
+                if let Some(b) = self.entity_mut(building).and_then(|e| e.as_building_mut()) {
                     b.rally = Some(rally);
                 }
                 Ok(CommandResult::ok())
@@ -186,7 +185,12 @@ impl World {
         }
     }
 
-    fn choose_civ(&mut self, player: PlayerId, slot: CivSlot, value: u16) -> Result<(), CommandError> {
+    fn choose_civ(
+        &mut self,
+        player: PlayerId,
+        slot: CivSlot,
+        value: u16,
+    ) -> Result<(), CommandError> {
         let epoch = self.player(player).epoch;
         let required = match slot {
             CivSlot::Culture => Epoch::Bronze,
@@ -278,7 +282,10 @@ impl World {
     ) -> Result<(), CommandError> {
         let (owner, item) = {
             let b = self.owned_building(player, building)?;
-            let item = *b.queue.get(index as usize).ok_or(CommandError::InvalidOrder)?;
+            let item = *b
+                .queue
+                .get(index as usize)
+                .ok_or(CommandError::InvalidOrder)?;
             (b.owner, item)
         };
         if owner != player {
@@ -346,7 +353,7 @@ impl World {
         let center = TilePos::new(origin.x + footprint / 2, origin.y + footprint / 2);
         self.entities.iter().any(|(_, e)| {
             if let Entity::Building(b) = e {
-                if b.owner == player || (b.owner == player && !b.finished) {
+                if b.owner == player {
                     return b.origin.dist(center) <= PLACEMENT_RADIUS + footprint;
                 }
             }
@@ -354,7 +361,11 @@ impl World {
         })
     }
 
-    fn cancel_building(&mut self, player: PlayerId, building: EntityId) -> Result<(), CommandError> {
+    fn cancel_building(
+        &mut self,
+        player: PlayerId,
+        building: EntityId,
+    ) -> Result<(), CommandError> {
         let (def, refund) = {
             let b = self.owned_building(player, building)?;
             if b.finished {
@@ -409,10 +420,7 @@ impl World {
             }
             let offset = grid_offset(i as i32, cols);
             let candidate = TilePos::new(goal.x + offset.0, goal.y + offset.1);
-            let dest = self
-                .map
-                .nearest_walkable(candidate, 6)
-                .unwrap_or(goal);
+            let dest = self.map.nearest_walkable(candidate, 6).unwrap_or(goal);
             let start = TilePos::from_vec(u.pos);
             let path = if start == dest {
                 Vec::new()
@@ -493,10 +501,7 @@ impl World {
                 continue;
             }
             // Workers first walk to a tile adjacent to the node.
-            let approach = self
-                .map
-                .nearest_walkable(pos, 6)
-                .unwrap_or(pos);
+            let approach = self.map.nearest_walkable(pos, 6).unwrap_or(pos);
             let start = self
                 .unit(*id)
                 .map(|u| TilePos::from_vec(u.pos))
@@ -506,7 +511,9 @@ impl World {
                 .find_path(&self.map, start, approach, 4000)
                 .unwrap_or_default();
             if let Some(u) = self.entity_mut(*id).and_then(|e| e.as_unit_mut()) {
-                u.order = Order::Gather { node: node as usize };
+                u.order = Order::Gather {
+                    node: node as usize,
+                };
                 u.gather_node = Some(node as usize);
                 u.target = None;
                 u.clear_path();
@@ -612,7 +619,10 @@ impl World {
     }
 
     pub fn building_count(&self) -> usize {
-        self.entities.iter().filter(|(_, e)| e.is_building()).count()
+        self.entities
+            .iter()
+            .filter(|(_, e)| e.is_building())
+            .count()
     }
 
     /// Sum of all stockpiles, a cheap "economy health" metric.

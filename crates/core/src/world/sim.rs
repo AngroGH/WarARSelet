@@ -64,7 +64,9 @@ impl World {
     pub fn step_many(&mut self, ticks: u32) {
         for _ in 0..ticks {
             self.step();
-            if self.outcome != MatchOutcome::Ongoing && self.config.mode != crate::world::GameMode::Sandbox {
+            if self.outcome != MatchOutcome::Ongoing
+                && self.config.mode != crate::world::GameMode::Sandbox
+            {
                 break;
             }
         }
@@ -99,13 +101,17 @@ impl World {
 
         // Builders: workers with a Build order standing next to a site.
         let mut contributions: Vec<(EntityId, u32)> = Vec::new();
-        for (uid, u) in self.entities.iter().filter_map(|(id, e)| {
-            e.as_unit().map(|u| (id, u))
-        }) {
+        for (uid, u) in self
+            .entities
+            .iter()
+            .filter_map(|(id, e)| e.as_unit().map(|u| (id, u)))
+        {
             let Order::Build { target } = u.order else {
                 continue;
             };
-            let Some((site_id, owner, origin, _, _, _)) = sites.iter().find(|(sid, _, _, _, _, _)| *sid == target) else {
+            let Some((site_id, owner, origin, _, _, _)) =
+                sites.iter().find(|(sid, _, _, _, _, _)| *sid == target)
+            else {
                 continue;
             };
             if *owner != u.owner {
@@ -141,10 +147,7 @@ impl World {
         }
 
         for (id, owner) in completed {
-            self.emit(GameEvent::BuildingCompleted {
-                owner,
-                entity: id,
-            });
+            self.emit(GameEvent::BuildingCompleted { owner, entity: id });
             if let Some(b) = self.building(id) {
                 if self.catalog.building(b.def).role == BuildingRole::Wonder {
                     self.emit(GameEvent::WonderCompleted { owner });
@@ -200,7 +203,10 @@ impl World {
                             owner,
                             entity: new_id,
                         });
-                        if let Some(b) = self.entity_mut(building_id).and_then(|e| e.as_building_mut()) {
+                        if let Some(b) = self
+                            .entity_mut(building_id)
+                            .and_then(|e| e.as_building_mut())
+                        {
                             b.queue.remove(0);
                             b.produce_timer = 0;
                         }
@@ -209,7 +215,10 @@ impl World {
                         // Refund and drop the queue item to avoid a stall.
                         let cost = self.catalog.unit(unit).effective_cost();
                         self.player_mut(owner).refund(cost);
-                        if let Some(b) = self.entity_mut(building_id).and_then(|e| e.as_building_mut()) {
+                        if let Some(b) = self
+                            .entity_mut(building_id)
+                            .and_then(|e| e.as_building_mut())
+                        {
                             b.queue.remove(0);
                         }
                     }
@@ -217,7 +226,10 @@ impl World {
             }
         }
         for (building_id, ticks_left) in updated {
-            if let Some(b) = self.entity_mut(building_id).and_then(|e| e.as_building_mut()) {
+            if let Some(b) = self
+                .entity_mut(building_id)
+                .and_then(|e| e.as_building_mut())
+            {
                 if let Some(item) = b.queue.first_mut() {
                     item.ticks_left = ticks_left;
                 }
@@ -291,7 +303,12 @@ impl World {
         // Attack-move and explicit attack orders override the idle check.
         let explicit = matches!(order, Order::Attack { .. } | Order::AttackMove { .. });
 
-        let range = (def.attack_range * 256) + if def.attack_range <= 1 { MELEE_SLACK } else { 0 };
+        let range = (def.attack_range * 256)
+            + if def.attack_range <= 1 {
+                MELEE_SLACK
+            } else {
+                0
+            };
 
         if target.is_none() && (wants_auto_acquire || explicit) {
             let search = if def.role.is_ranged() {
@@ -399,13 +416,13 @@ impl World {
             }
             if e.is_building() && !aggressive_only {
                 let key = (dist, id);
-                if best_building.map_or(true, |b| key < b) {
+                if best_building.is_none_or(|b| key < b) {
                     best_building = Some(key);
                 }
                 continue;
             }
             let key = (dist, id);
-            if best.map_or(true, |b| key < b) {
+            if best.is_none_or(|b| key < b) {
                 best = Some(key);
             }
         }
@@ -416,7 +433,11 @@ impl World {
         let Some(attacker_owner) = self.entity(attacker).map(|e| e.owner()) else {
             return;
         };
-        let bonus = self.entity(attacker).and_then(|e| e.as_unit()).map(|u| u.damage_bonus_milli).unwrap_or(0);
+        let bonus = self
+            .entity(attacker)
+            .and_then(|e| e.as_unit())
+            .map(|u| u.damage_bonus_milli)
+            .unwrap_or(0);
         let Some(target_armor) = self.entity(target).map(|e| match e {
             Entity::Unit(_) => self
                 .unit(target)
@@ -497,10 +518,7 @@ impl World {
                 }
             }
         }
-        self.emit(GameEvent::Damage {
-            target,
-            amount,
-        });
+        self.emit(GameEvent::Damage { target, amount });
         if killed {
             self.kill_entity(target, attacker);
             let _ = (target_owner, attacker_entity);
@@ -511,10 +529,7 @@ impl World {
         let Some(entity) = self.entities.remove(id) else {
             return;
         };
-        self.emit(GameEvent::EntityKilled {
-            entity: id,
-            killer,
-        });
+        self.emit(GameEvent::EntityKilled { entity: id, killer });
         if !killer.is_gaia() && killer != entity.owner() {
             if let Some(k) = self.players.get_mut(killer.index()) {
                 k.kills += 1;
@@ -607,9 +622,15 @@ impl World {
                 }
             }
             Order::Build { target } | Order::Repair { target } => {
-                let Some(bpos) = self.building(target).map(|b| b.pos) else {
-                    return self.finish_movement(id, Some(ArrivedAction::Stop));
+                let (bpos, finished) = match self.building(target) {
+                    Some(b) => (b.pos, b.finished),
+                    None => return self.finish_movement(id, Some(ArrivedAction::Stop)),
                 };
+                if finished {
+                    // The site was completed (or cancelled) while walking
+                    // there; release the builder so the bot can reassign it.
+                    return self.finish_movement(id, Some(ArrivedAction::Stop));
+                }
                 if TilePos::from_vec(pos).dist(TilePos::from_vec(bpos)) > 4 {
                     desired = Some(bpos);
                 } else if matches!(order, Order::Repair { .. }) {
@@ -650,10 +671,8 @@ impl World {
         def: &crate::defs::UnitDef,
     ) {
         // Take the path out of the unit to avoid holding a borrow of `self`.
-        let Some((mut pos, mut path, mut cursor, mut last_repath)) = self
-            .entity_mut(id)
-            .and_then(|e| e.as_unit_mut())
-            .map(|u| {
+        let Some((mut pos, mut path, mut cursor, mut last_repath)) =
+            self.entity_mut(id).and_then(|e| e.as_unit_mut()).map(|u| {
                 (
                     u.pos,
                     std::mem::take(&mut u.path),
@@ -685,8 +704,7 @@ impl World {
 
         // Step in fixed units: `speed_milli` is milli-tiles per second.
         // bits_per_tick = speed_milli / 1000 * 256 / TICKS_PER_SECOND
-        let step =
-            (speed_milli as i64 * 256 / 1000 / TICKS_PER_SECOND as i64) as i32;
+        let step = (speed_milli as i64 * 256 / 1000 / TICKS_PER_SECOND as i64) as i32;
         let mut remaining = step.max(1);
 
         while remaining > 0 {
@@ -715,8 +733,14 @@ impl World {
         // Keep the unit inside the map.
         let max_x = (self.map.width - 1) * 256;
         let max_y = (self.map.height - 1) * 256;
-        pos.x = pos.x.clamp(crate::math::Fixed::ZERO, crate::math::Fixed::from_bits(max_x));
-        pos.y = pos.y.clamp(crate::math::Fixed::ZERO, crate::math::Fixed::from_bits(max_y));
+        pos.x = pos.x.clamp(
+            crate::math::Fixed::ZERO,
+            crate::math::Fixed::from_bits(max_x),
+        );
+        pos.y = pos.y.clamp(
+            crate::math::Fixed::ZERO,
+            crate::math::Fixed::from_bits(max_y),
+        );
 
         if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
             u.pos = pos;
@@ -739,11 +763,46 @@ impl World {
         };
         let node_pos = n.pos;
         let kind = n.kind;
+        let node_amount = n.amount;
         let Some(u) = self.unit(id) else { return };
         let pos = u.pos;
-        let mut cargo = u.cargo;
+        let cargo = u.cargo;
+        let owner = u.owner;
         let capacity = def.capacity.max(1);
-        let gather_rate = def.gather_rate.max(1) as i32;
+        let gather_rate = def.gather_rate.max(1);
+
+        // A loaded worker always heads home. This check must come before the
+        // "walk to the node" branch: otherwise a returning worker is sent back
+        // to the node every tick and never deposits anything.
+        if cargo.amount >= capacity {
+            let Some(target) = self.nearest_drop_off(owner, pos) else {
+                // Nowhere to drop: wait with the load until a drop-off exists.
+                if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
+                    u.state = UnitState::Gathering;
+                }
+                return;
+            };
+            if TilePos::from_vec(pos).dist(TilePos::from_vec(target)) > 3 {
+                self.step_toward(id, target, def.speed_milli as u32, def);
+                if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
+                    u.state = UnitState::Returning;
+                }
+            } else {
+                self.deposit_cargo(id, node, kind, cargo.amount);
+            }
+            return;
+        }
+
+        if node_amount <= 0 {
+            // The node was emptied by another worker first.
+            if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
+                u.order = Order::Idle;
+                u.gather_node = None;
+                u.cargo = Cargo::default();
+                u.state = UnitState::Idle;
+            }
+            return;
+        }
 
         let near = TilePos::from_vec(pos).dist(node_pos) <= 2;
         if !near {
@@ -752,47 +811,21 @@ impl World {
             return;
         }
 
-        // Harvest.
-        if cargo.amount < capacity {
-            // Gather 1 unit per 3 ticks scaled by the rate.
-            let per_tick = (gather_rate * 1000 / 3).max(1);
-            if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
-                u.work_accum += per_tick;
-                while u.work_accum >= 1000 && cargo.amount < capacity {
-                    u.work_accum -= 1000;
-                    cargo.amount += 1;
-                }
-                u.cargo = Cargo {
-                    kind: Some(kind),
-                    amount: cargo.amount,
-                };
+        // Harvest. Consumption of the node happens on deposit, not on
+        // pick-up: keeps the node a stable gather target for the whole trip.
+        let per_tick = (gather_rate * 1000 / 3).max(1);
+        let mut amount = cargo.amount;
+        if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
+            u.work_accum += per_tick;
+            while u.work_accum >= 1000 && amount < capacity {
+                u.work_accum -= 1000;
+                amount += 1;
             }
-            // Deplete the map node.
-            let taken = self.map.take_from_node(node, 0);
-            let _ = taken;
-            // Consumption of the node happens on deposit, not on pick-up:
-            // keeps the node a stable gather target for the whole trip.
-        }
-
-        if cargo.amount >= capacity {
-            // Return to the nearest drop-off.
-            let drop_off = self.nearest_drop_off(u_owner(&self, id), pos);
-            if let Some(target) = drop_off {
-                if TilePos::from_vec(pos).dist(TilePos::from_vec(target)) > 3 {
-                    self.step_toward(id, target, def.speed_milli as u32, def);
-                    if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
-                        u.state = UnitState::Returning;
-                    }
-                } else {
-                    // Deposit.
-                    self.deposit_cargo(id, node, kind, cargo.amount);
-                }
-            } else {
-                // Nowhere to drop: keep gathering up to capacity and wait.
-                if let Some(u) = self.entity_mut(id).and_then(|e| e.as_unit_mut()) {
-                    u.state = UnitState::Gathering;
-                }
-            }
+            u.cargo = Cargo {
+                kind: Some(kind),
+                amount,
+            };
+            u.state = UnitState::Gathering;
         }
     }
 
@@ -800,13 +833,13 @@ impl World {
         let mut best: Option<(i32, Vec2)> = None;
         for (_, e) in self.entities.iter() {
             if let Entity::Building(b) = e {
-                if b.owner != owner {
+                if b.owner != owner || !b.finished {
                     continue;
                 }
                 let role = self.catalog.building(b.def).role;
                 if matches!(role, BuildingRole::TownCenter | BuildingRole::Storage) {
                     let d = Vec2::dist(from, b.pos).to_int();
-                    if best.map_or(true, |(bd, _)| d < bd) {
+                    if best.is_none_or(|(bd, _)| d < bd) {
                         best = Some((d, b.pos));
                     }
                 }
@@ -893,8 +926,7 @@ impl World {
             .entities
             .iter()
             .filter(|(_, e)| e.owner() == victim)
-            .map(|(id, _)| self.building_center(id))
-            .flatten()
+            .filter_map(|(id, _)| self.building_center(id))
             .next()
             .or_else(|| {
                 self.entities
@@ -972,7 +1004,11 @@ impl World {
         };
         for i in 0..count {
             let offset = formation_offset(i as usize, count as usize, 3);
-            let pos = self.map.starts.iter().find(|s| s.x == edge_x && s.y == edge_y);
+            let pos = self
+                .map
+                .starts
+                .iter()
+                .find(|s| s.x == edge_x && s.y == edge_y);
             let base = pos
                 .map(|s| s.center())
                 .unwrap_or(Vec2::from_ints(edge_x, edge_y));
@@ -980,10 +1016,6 @@ impl World {
         }
         self.meteor_count += 1;
     }
-}
-
-fn u_owner(world: &World, id: EntityId) -> PlayerId {
-    world.unit(id).map(|u| u.owner).unwrap_or(PlayerId::GAIA)
 }
 
 enum ArrivedAction {

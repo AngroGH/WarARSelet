@@ -15,7 +15,9 @@ pub const FRAC_BITS: u32 = 8;
 pub const SCALE: i32 = 1 << FRAC_BITS;
 
 /// Q24.8 fixed-point number.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Serialize, Deserialize,
+)]
 pub struct Fixed(pub i32);
 
 impl Fixed {
@@ -87,6 +89,7 @@ impl Fixed {
     }
 
     /// Presentation only. Never use the result for simulation decisions.
+    #[allow(clippy::float_arithmetic)]
     #[inline]
     pub fn to_f32(self) -> f32 {
         self.0 as f32 / SCALE as f32
@@ -270,7 +273,9 @@ impl Neg for Vec2 {
 }
 
 /// Tile coordinate (integer grid cell).
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Serialize, Deserialize,
+)]
 pub struct TilePos {
     pub x: i32,
     pub y: i32,
@@ -307,7 +312,10 @@ mod tests {
         assert_eq!(a.to_milli(), 3500);
         assert_eq!(a.to_int(), 3);
         assert_eq!((a - Fixed::from_int(1)).to_milli(), 2500);
-        assert_eq!((Fixed::from_int(2) * Fixed::from_milli(250)).to_milli(), 500);
+        assert_eq!(
+            (Fixed::from_int(2) * Fixed::from_milli(250)).to_milli(),
+            500
+        );
         assert_eq!(Fixed::from_int(1).to_f32(), 1.0);
     }
 
@@ -328,8 +336,16 @@ mod tests {
         let (pos, arrived) = a.step_toward(b, Fixed::from_int(1));
         assert!(!arrived);
         // 3/5 and 4/5 of a tile, with 1/256 truncation error at most.
-        assert!((pos.x.to_milli() - 600).abs() <= 4, "x = {}", pos.x.to_milli());
-        assert!((pos.y.to_milli() - 800).abs() <= 4, "y = {}", pos.y.to_milli());
+        assert!(
+            (pos.x.to_milli() - 600).abs() <= 4,
+            "x = {}",
+            pos.x.to_milli()
+        );
+        assert!(
+            (pos.y.to_milli() - 800).abs() <= 4,
+            "y = {}",
+            pos.y.to_milli()
+        );
         assert!((pos.length().to_milli() - 1000).abs() <= 4);
     }
 }
